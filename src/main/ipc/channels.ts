@@ -11,6 +11,7 @@ export const IPC = {
   SET_PROVIDER_CONFIG: 'set-provider-config',
   GET_USAGE: 'get-usage',
   GET_GAME_PHASE: 'get-game-phase',
+  SUBMIT_ACCURACY: 'submit-accuracy',
 
   // Main → Renderer
   ANALYSIS_RESULT: 'analysis-result',

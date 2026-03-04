@@ -10,7 +10,8 @@ type Provider = 'claude' | 'openai' | 'openrouter'
 declare global {
   interface Window {
     api: {
-      detectPicks: () => Promise<{ ok: boolean; picks: { champion: string; role: string }[]; myChampion?: string | null; scene?: string; note?: string; pendingRoles?: string[]; error?: string }>
+      detectPicks: () => Promise<{ ok: boolean; picks: { champion: string; role: string }[]; myChampion?: string | null; myRole?: string | null; scene?: string; note?: string; pendingRoles?: string[]; recordTimestamp?: string; error?: string }>
+      submitAccuracy: (payload: { refTimestamp: string; correctCount: number; totalDetected: number; accuracyPct: number }) => void
       analyse: (payload: { myChampion: string; myRole: string; side: 'Blue' | 'Red'; enemyTeam: string[] }) => Promise<{ ok: boolean; error?: string }>
       showOverlay: () => void
       getUsage: () => Promise<{ inputTokens: number; outputTokens: number; costUsd: number; calls: number }>
@@ -186,6 +187,7 @@ export default function App() {
   const [side, setSide] = useState<'Blue' | 'Red'>('Blue')
   const [enemies, setEnemies] = useState<string[]>(['', '', '', '', ''])
   const [enemiesConfirmed, setEnemiesConfirmed] = useState<boolean[]>([false, false, false, false, false])
+  const [detectedSnapshot, setDetectedSnapshot] = useState<{ refTimestamp: string; enemies: string[]; myChampion: string | null } | null>(null)
   const [screenshotting, setScreenshotting] = useState(false)
   const [analysing, setAnalysing] = useState(false)
   const [status, setStatus] = useState<string | null>(null)
@@ -234,8 +236,16 @@ export default function App() {
         setEnemies(filled)
         setEnemiesConfirmed(filled.map(f => !!f))
         if (result.myChampion) { setChampion(result.myChampion); setChampionConfirmed(true) }
+        if (result.recordTimestamp) {
+          setDetectedSnapshot({ refTimestamp: result.recordTimestamp, enemies: filled, myChampion: result.myChampion ?? null })
+        }
+        if (result.myRole) {
+          const roleMap: Record<string, string> = { jungle: 'JG', support: 'Sup', top: 'Top', mid: 'Mid', bot: 'Bot' }
+          const mapped = roleMap[result.myRole.toLowerCase()] ?? result.myRole
+          if (ROLES.includes(mapped)) setRole(mapped)
+        }
         const pending = result.pendingRoles?.length ? ` — waiting on: ${result.pendingRoles.join(', ')}` : ''
-        const myStr = result.myChampion ? ` · You: ${result.myChampion}` : ''
+        const myStr = result.myChampion ? ` · You: ${result.myChampion}${result.myRole ? ` (${result.myRole})` : ''}` : ''
         setStatus(`${result.picks.length} champion${result.picks.length > 1 ? 's' : ''} detected${myStr}${pending}`)
       }
     } catch {
@@ -250,6 +260,36 @@ export default function App() {
     const filledEnemies = enemies.filter(e => e.trim())
     if (filledEnemies.length === 0) { setError('Add at least one enemy.'); return }
     setError(null); setStatus(null); setAnalysing(true)
+
+    // Passive accuracy measurement: diff detected snapshot vs final submitted values
+    if (detectedSnapshot) {
+      const ROLE_ORDER = ['Top', 'Jungle', 'Mid', 'Bot', 'Support']
+      const finalEnemies = ROLE_ORDER.map((_, i) => enemies[i]?.trim().toLowerCase() ?? '')
+      const snapEnemies = detectedSnapshot.enemies.map(e => e.trim().toLowerCase())
+      let correct = 0
+      let total = 0
+      for (let i = 0; i < 5; i++) {
+        if (snapEnemies[i]) {
+          total++
+          if (snapEnemies[i] === finalEnemies[i]) correct++
+        }
+      }
+      const snapChamp = detectedSnapshot.myChampion?.trim().toLowerCase() ?? ''
+      if (snapChamp) {
+        total++
+        if (snapChamp === champion.trim().toLowerCase()) correct++
+      }
+      if (total > 0) {
+        window.api.submitAccuracy({
+          refTimestamp: detectedSnapshot.refTimestamp,
+          correctCount: correct,
+          totalDetected: total,
+          accuracyPct: Math.round((correct / total) * 1000) / 10,
+        })
+      }
+      setDetectedSnapshot(null)
+    }
+
     try {
       const result = await window.api.analyse({
         myChampion: champion.trim(),

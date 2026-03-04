@@ -57,26 +57,15 @@ export function buildAnalysisUserPrompt(params: AnalysisPromptParams): string {
   return lines.join('\n')
 }
 
-export const VISION_PROMPT = `You are analyzing a screenshot to determine if it shows a League of Legends ranked draft pick champion select screen, and if so, identify the enemy team's locked-in champions.
+export const VISION_PROMPT = `Output ONLY a raw JSON object, no text before or after.
 
-Important: In ranked draft pick, position icons are only shown for YOUR team — the enemy team's slots have NO position indicators. You must infer enemy roles from champion identity and pick order context.
+{"scene":"champion_select","my_champion":"ChampionName","my_role":"Top","enemy_picks":[{"champion":"ChampionName","role":"Top"}],"pending_roles":[],"note":"","confidence":"high"}
 
-Return ONLY valid JSON, no markdown:
-{"scene": "champion_select", "my_champion": "Zed", "enemy_picks": [{"champion": "ChampionName", "role": "Top"}], "locked_count": 3, "pending_roles": ["Bot", "Support"], "note": "2 picks not yet locked", "confidence": "medium"}
-
-Fields:
-- scene: "champion_select" if this is clearly a LoL champion select screen, "not_champion_select" if it's something else, "unknown" if unclear
-- my_champion: the champion the local player (bottom-left team, YOUR side) is currently hovering or has locked in — null if not yet selected
-- enemy_picks: locked-in champions on the enemy team only (not hovering/tentative)
-- locked_count: how many enemy picks are confirmed locked
-- pending_roles: which roles on the enemy side appear unfilled
-- note: short description — e.g. "All 5 enemies locked", "3 locked, Bot and Support still picking", "Not a champion select screen"
-- confidence: "high" if all 5 enemies locked, "medium" if 3-4, "low" if fewer than 3
-
-Rules:
-- my_champion: look for the highlighted/active champion card on YOUR team's side (position icons visible) — include hovering picks too, not just locked
-- Only include champions with confirmed locks in enemy_picks
-- Use exact champion names as they appear in League (e.g. "Kai'Sa" not "Kaisa")
-- role must be one of: "Top", "Jungle", "Mid", "Bot", "Support"
-- Infer enemy roles from champion identity (e.g. Lee Sin → Jungle, Thresh → Support, Jinx → Bot) and pick order
-- If scene is "not_champion_select", set enemy_picks to [] and my_champion to null`
+scene: "champion_select" | "not_champion_select" | "unknown"
+my_champion: YOUR team's highlighted/active champion (bottom-left side, has role icons) — null if none
+my_role: YOUR position — infer from the role icon shown next to your champion on YOUR team side. One of: "Top","Jungle","Mid","Bot","Support" — null if unclear
+enemy_picks: only confirmed locked enemy champions — infer roles from champion identity (e.g. Thresh→Support, Lee Sin→Jungle)
+CRITICAL: each role must appear at most once in enemy_picks. Use process of elimination — if two champions seem like the same role, assign the second one the remaining unfilled role.
+pending_roles: enemy roles not yet locked
+confidence: "high"=5 locked, "medium"=3-4, "low"=<3
+If not champion select: scene="not_champion_select", enemy_picks=[], my_champion=null, my_role=null`

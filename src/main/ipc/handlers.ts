@@ -11,6 +11,7 @@ import { captureScreenAsBase64 } from '../services/screen-capture'
 import { getOverlayWindow, showOverlay } from '../windows/overlay-window'
 import { getMainWindow } from '../windows/main-window'
 import { getChampionSpells, getLatestVersion } from '../services/data-dragon'
+import { appendAccuracyFeedback } from '../services/analytics-store'
 
 export function registerIpcHandlers(): void {
 
@@ -174,4 +175,16 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC.GET_USAGE, () => getSessionUsage())
   ipcMain.handle(IPC.GET_GAME_PHASE, () => getGamePhase())
+
+  ipcMain.on(IPC.SUBMIT_ACCURACY, (_, payload: { refTimestamp: string; correctCount: number; totalDetected: number; accuracyPct: number }) => {
+    appendAccuracyFeedback({
+      type: 'accuracy_feedback',
+      timestamp: new Date().toISOString(),
+      refTimestamp: payload.refTimestamp,
+      correctCount: payload.correctCount,
+      totalDetected: payload.totalDetected,
+      accuracyPct: payload.accuracyPct,
+    })
+    console.log(`[Analytics] Accuracy feedback: ${payload.correctCount}/${payload.totalDetected} (${payload.accuracyPct.toFixed(1)}%)`)
+  })
 }

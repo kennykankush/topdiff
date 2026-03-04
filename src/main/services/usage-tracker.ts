@@ -25,7 +25,7 @@ export function computeCost(model: string, inputTokens: number, outputTokens: nu
   return (inputTokens / 1_000_000) * p.input + (outputTokens / 1_000_000) * p.output
 }
 
-export function recordUsage(model: string, inputTokens: number, outputTokens: number): void {
+export function recordUsage(model: string, inputTokens: number, outputTokens: number, phase?: string): void {
   const cost = computeCost(model, inputTokens, outputTokens)
   session.inputTokens += inputTokens
   session.outputTokens += outputTokens

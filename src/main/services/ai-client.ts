@@ -6,9 +6,11 @@ export interface AIClient {
   detectEnemyPicks(screenshotBase64: string): Promise<{
     picks: { champion: string; role: string }[]
     myChampion: string | null
+    myRole: string | null
     scene: string
     note: string
     pendingRoles: string[]
+    recordTimestamp: string
   }>
   readonly provider: 'claude' | 'openai' | 'openrouter'
 }
