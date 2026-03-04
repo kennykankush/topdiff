@@ -10,7 +10,7 @@ import LaneKitCooldowns from './components/LaneKitCooldowns'
 import Gameplan from './components/Gameplan'
 import TipsView from './components/TipsView'
 import JGPath from './components/JGPath'
-import LiveView from './components/LiveView'
+import CompactLiveView from './components/CompactLiveView'
 import PostGameView from './components/PostGameView'
 
 declare global {
@@ -34,8 +34,8 @@ type AnalysisState =
   | { phase: 'result'; data: AnalysisResult }
   | { phase: 'error'; message: string }
 
-type ViewMode = 'panel' | 'tips'
-type TabId = 'live' | 'jg' | 'plan' | 'runes' | 'build' | 'comp' | 'kit'
+type ViewMode = 'panel' | 'tips' | 'live'
+type TabId = 'jg' | 'plan' | 'runes' | 'build' | 'comp' | 'kit'
 
 const ANALYSIS_TABS: { id: TabId; label: string }[] = [
   { id: 'jg',    label: 'JG'    },
@@ -73,12 +73,12 @@ export default function App() {
     window.overlayApi.onGamePhase(phase => {
       setGamePhase(phase)
       if (phase === 'in_game') {
-        // Auto-switch to Live tab when game starts
-        setVisibleTabs(['live'])
+        setViewMode('live')
         setVisible(true)
       }
       if (phase === 'idle') {
         setLiveSnapshot(null)
+        setViewMode('panel')
         setVisibleTabs(['jg'])
       }
     })
@@ -121,6 +121,11 @@ export default function App() {
             <TipsView analysis={analysisData} onTogglePanel={() => setViewMode('panel')} />
           )}
 
+          {/* ── LIVE MODE ── */}
+          {viewMode === 'live' && liveSnapshot && (
+            <CompactLiveView snapshot={liveSnapshot} onTogglePanel={() => setViewMode('panel')} />
+          )}
+
           {/* ── PANEL MODE ── */}
           {viewMode === 'panel' && (
             <div
@@ -151,6 +156,19 @@ export default function App() {
                   )}
                 </div>
                 <div className="flex items-center gap-1.5">
+                  {gamePhase === 'in_game' && liveSnapshot && (
+                    <button
+                      onClick={() => setViewMode('live')}
+                      className="no-drag px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider transition-colors"
+                      style={{
+                        background: viewMode === 'live' ? 'rgba(74,222,128,0.12)' : 'rgba(255,255,255,0.04)',
+                        border: `1px solid ${viewMode === 'live' ? 'rgba(74,222,128,0.3)' : 'rgba(255,255,255,0.07)'}`,
+                        color: viewMode === 'live' ? '#4ade80' : 'rgba(255,255,255,0.3)',
+                      }}
+                    >
+                      live
+                    </button>
+                  )}
                   <button
                     onClick={() => setViewMode('tips')}
                     className="no-drag px-1.5 py-0.5 rounded text-white/30 hover:text-white/65 text-[9px] uppercase tracking-wider transition-colors"
@@ -200,19 +218,6 @@ export default function App() {
                 <>
                   {/* Tab bar */}
                   <div className="no-drag flex flex-shrink-0 border-b border-white/5">
-                    {/* Live tab — only when in game */}
-                    {gamePhase === 'in_game' && (
-                      <button
-                        onClick={() => setVisibleTabs(['live'])}
-                        className="flex-1 py-1.5 text-[10px] font-semibold uppercase tracking-wider transition-colors relative"
-                        style={{ color: visibleTabs[0] === 'live' ? '#4ade80' : 'rgba(255,255,255,0.25)' }}
-                      >
-                        Live
-                        {visibleTabs[0] === 'live' && (
-                          <motion.div layoutId="tab-indicator" className="absolute bottom-0 left-0 right-0 h-px" style={{ background: '#4ade80' }} />
-                        )}
-                      </button>
-                    )}
                     {ANALYSIS_TABS.map(tab => {
                       const active = visibleTabs.includes(tab.id)
                       const stacked = active && visibleTabs.length > 1
@@ -258,16 +263,9 @@ export default function App() {
                     })}
                   </div>
 
-                  {/* Live tab content */}
-                  {visibleTabs[0] === 'live' && liveSnapshot && (
-                    <div className="overflow-y-auto no-drag" style={{ scrollbarWidth: 'none', maxHeight: 760 }}>
-                      <LiveView snapshot={liveSnapshot} />
-                    </div>
-                  )}
-
                   {/* Analysis tab content — only when result is available */}
                   {analysis.phase === 'result' && (
-                    <div className="overflow-y-auto no-drag" style={{ scrollbarWidth: 'none', maxHeight: 760, display: visibleTabs[0] === 'live' ? 'none' : undefined }}>
+                    <div className="overflow-y-auto no-drag" style={{ scrollbarWidth: 'none', maxHeight: 760 }}>
                       <AnimatePresence>
                         {visibleTabs.filter(t => t !== 'live').map((tabId, index) => (
                           <motion.div
