@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '../main/ipc/channels'
-import type { AnalysisResult } from '../shared/types'
+import type { AnalysisResult, LiveSnapshot, PostGameSummary, GamePhase } from '../shared/types'
 
 // Main window API
 contextBridge.exposeInMainWorld('api', {
@@ -27,5 +27,11 @@ contextBridge.exposeInMainWorld('overlayApi', {
   onError: (cb: (msg: string) => void) =>
     ipcRenderer.on(IPC.ANALYSIS_ERROR, (_, msg) => cb(msg)),
   close: () => ipcRenderer.send(IPC.CLOSE_OVERLAY),
-  resize: (height: number) => ipcRenderer.send(IPC.RESIZE_OVERLAY, height)
+  resize: (height: number) => ipcRenderer.send(IPC.RESIZE_OVERLAY, height),
+  onGamePhase: (cb: (phase: GamePhase) => void) =>
+    ipcRenderer.on(IPC.GAME_PHASE, (_, phase) => cb(phase)),
+  onLiveData: (cb: (snapshot: LiveSnapshot) => void) =>
+    ipcRenderer.on(IPC.LIVE_DATA, (_, snapshot) => cb(snapshot)),
+  onPostGame: (cb: (summary: PostGameSummary) => void) =>
+    ipcRenderer.on(IPC.POST_GAME, (_, summary) => cb(summary)),
 })

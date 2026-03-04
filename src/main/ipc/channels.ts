@@ -10,9 +10,13 @@ export const IPC = {
   GET_PROVIDER_CONFIG: 'get-provider-config',
   SET_PROVIDER_CONFIG: 'set-provider-config',
   GET_USAGE: 'get-usage',
+  GET_GAME_PHASE: 'get-game-phase',
 
   // Main → Renderer
   ANALYSIS_RESULT: 'analysis-result',
   ANALYSIS_ERROR: 'analysis-error',
-  ANALYSIS_LOADING: 'analysis-loading'
+  ANALYSIS_LOADING: 'analysis-loading',
+  GAME_PHASE: 'game-phase',
+  LIVE_DATA: 'live-data',
+  POST_GAME: 'post-game'
 } as const

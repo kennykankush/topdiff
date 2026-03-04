@@ -3,6 +3,7 @@ import { IPC } from './channels'
 import { getClient, setClient } from '../services/client-state'
 import { loadConfig, saveConfig } from '../services/config-store'
 import { getSessionUsage, resetSession } from '../services/usage-tracker'
+import { getGamePhase } from '../services/game-watcher'
 import { ClaudeClient } from '../services/claude-client'
 import { OpenAIClient } from '../services/openai-client'
 import { OpenRouterClient } from '../services/openrouter-client'
@@ -172,4 +173,5 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle(IPC.GET_USAGE, () => getSessionUsage())
+  ipcMain.handle(IPC.GET_GAME_PHASE, () => getGamePhase())
 }

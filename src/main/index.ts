@@ -6,6 +6,7 @@ import { createOverlayWindow } from './windows/overlay-window'
 import { registerIpcHandlers } from './ipc/handlers'
 import { setClient } from './services/client-state'
 import { loadConfig, type ProviderConfig } from './services/config-store'
+import { startGameWatcher } from './services/game-watcher'
 import { ClaudeClient } from './services/claude-client'
 import { OpenAIClient } from './services/openai-client'
 import { OpenRouterClient } from './services/openrouter-client'
@@ -47,6 +48,7 @@ app.whenReady().then(() => {
   createMainWindow()
   createOverlayWindow()
   registerIpcHandlers()
+  startGameWatcher()
 })
 
 app.on('window-all-closed', () => {

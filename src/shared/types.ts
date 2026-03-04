@@ -1,5 +1,54 @@
 // Shared types used by both main process and renderer
 
+// ── Live Game ────────────────────────────────────────────────────────────────
+
+export type GamePhase = 'idle' | 'in_game' | 'post_game'
+
+export interface LiveSnapshot {
+  gameTime: number        // seconds elapsed
+  gameMode: string
+  myChampion: string
+  myPosition: string
+  myTeam: 'ORDER' | 'CHAOS'
+  level: number
+  isDead: boolean
+  respawnTimer: number
+  currentGold: number
+  scores: { kills: number; deaths: number; assists: number; creepScore: number }
+  csPerMin: number
+  expectedCS: number      // based on game time
+  killParticipation: number  // 0-100
+  teamGoldDiff: number    // positive = your team ahead (item gold proxy)
+  enemyLaner: {
+    championName: string
+    level: number
+    isDead: boolean
+    respawnTimer: number
+    scores: { kills: number; deaths: number; assists: number; creepScore: number }
+    csPerMin: number
+  } | null
+  objectives: {
+    nextDragon: number    // seconds until next spawn; 0 = up now
+    nextBaron: number     // -1 = not spawned this game yet
+    dragonCount: { order: number; chaos: number }
+  }
+}
+
+export interface PostGameSummary {
+  durationSeconds: number
+  myChampion: string
+  kills: number
+  deaths: number
+  assists: number
+  cs: number
+  csPerMin: number
+  expectedCS: number
+  killParticipation: number
+  teamGoldDiff: number
+}
+
+
+
 export interface AnalysisItem {
   slot: number
   item: string

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import type { AnalysisResult } from '../../../shared/types'
+import type { AnalysisResult, LiveSnapshot, PostGameSummary, GamePhase } from '../../../shared/types'
 import SpellTimers from './components/SpellTimers'
 import ItemBuildPath from './components/ItemBuildPath'
 import MatchInsight from './components/MatchInsight'
@@ -10,6 +10,8 @@ import LaneKitCooldowns from './components/LaneKitCooldowns'
 import Gameplan from './components/Gameplan'
 import TipsView from './components/TipsView'
 import JGPath from './components/JGPath'
+import LiveView from './components/LiveView'
+import PostGameView from './components/PostGameView'
 
 declare global {
   interface Window {
@@ -19,6 +21,9 @@ declare global {
       onError: (cb: (msg: string) => void) => void
       close: () => void
       resize: (height: number) => void
+      onGamePhase: (cb: (phase: GamePhase) => void) => void
+      onLiveData: (cb: (snapshot: LiveSnapshot) => void) => void
+      onPostGame: (cb: (summary: PostGameSummary) => void) => void
     }
   }
 }
@@ -30,9 +35,9 @@ type AnalysisState =
   | { phase: 'error'; message: string }
 
 type ViewMode = 'panel' | 'tips'
-type TabId = 'jg' | 'plan' | 'runes' | 'build' | 'comp' | 'kit'
+type TabId = 'live' | 'jg' | 'plan' | 'runes' | 'build' | 'comp' | 'kit'
 
-const TABS: { id: TabId; label: string }[] = [
+const ANALYSIS_TABS: { id: TabId; label: string }[] = [
   { id: 'jg',    label: 'JG'    },
   { id: 'plan',  label: 'Plan'  },
   { id: 'runes', label: 'Runes' },
@@ -47,6 +52,9 @@ export default function App() {
   const [analysis, setAnalysis] = useState<AnalysisState>({ phase: 'idle' })
   const [viewMode, setViewMode] = useState<ViewMode>('panel')
   const [visibleTabs, setVisibleTabs] = useState<TabId[]>(['jg'])
+  const [gamePhase, setGamePhase] = useState<GamePhase>('idle')
+  const [liveSnapshot, setLiveSnapshot] = useState<LiveSnapshot | null>(null)
+  const [postGame, setPostGame] = useState<PostGameSummary | null>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -62,6 +70,23 @@ export default function App() {
       setViewMode('panel')
     })
     window.overlayApi.onError(message => setAnalysis({ phase: 'error', message }))
+    window.overlayApi.onGamePhase(phase => {
+      setGamePhase(phase)
+      if (phase === 'in_game') {
+        // Auto-switch to Live tab when game starts
+        setVisibleTabs(['live'])
+        setVisible(true)
+      }
+      if (phase === 'idle') {
+        setLiveSnapshot(null)
+        setVisibleTabs(['jg'])
+      }
+    })
+    window.overlayApi.onLiveData(snapshot => setLiveSnapshot(snapshot))
+    window.overlayApi.onPostGame(summary => {
+      setPostGame(summary)
+      setGamePhase('post_game')
+    })
   }, [])
 
   // Resize window to fit content — observe the always-mounted wrapper so
@@ -113,7 +138,18 @@ export default function App() {
             >
               {/* Header */}
               <div className="drag flex items-center justify-between px-3 py-1.5 border-b border-white/5 flex-shrink-0">
-                <span className="text-lol-gold/70 text-[11px] font-bold uppercase tracking-widest">TopDiff</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-lol-gold/70 text-[11px] font-bold uppercase tracking-widest">TopDiff</span>
+                  {gamePhase === 'in_game' && liveSnapshot && (
+                    <span style={{
+                      fontSize: 9, color: '#4ade80', fontWeight: 700, letterSpacing: '0.06em',
+                      background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.2)',
+                      padding: '1px 5px', borderRadius: 3,
+                    }}>
+                      LIVE {Math.floor(liveSnapshot.gameTime / 60)}:{String(Math.floor(liveSnapshot.gameTime % 60)).padStart(2, '0')}
+                    </span>
+                  )}
+                </div>
                 <div className="flex items-center gap-1.5">
                   <button
                     onClick={() => setViewMode('tips')}
@@ -154,12 +190,30 @@ export default function App() {
                 </div>
               )}
 
-              {/* ── Tab bar + content (results only) ── */}
-              {analysis.phase === 'result' && (
+              {/* ── Post-game summary ── */}
+              {postGame && (
+                <PostGameView summary={postGame} onDismiss={() => { setPostGame(null); setGamePhase('idle') }} />
+              )}
+
+              {/* ── Tab bar + content ── */}
+              {!postGame && (analysis.phase === 'result' || gamePhase === 'in_game') && (
                 <>
                   {/* Tab bar */}
                   <div className="no-drag flex flex-shrink-0 border-b border-white/5">
-                    {TABS.map(tab => {
+                    {/* Live tab — only when in game */}
+                    {gamePhase === 'in_game' && (
+                      <button
+                        onClick={() => setVisibleTabs(['live'])}
+                        className="flex-1 py-1.5 text-[10px] font-semibold uppercase tracking-wider transition-colors relative"
+                        style={{ color: visibleTabs[0] === 'live' ? '#4ade80' : 'rgba(255,255,255,0.25)' }}
+                      >
+                        Live
+                        {visibleTabs[0] === 'live' && (
+                          <motion.div layoutId="tab-indicator" className="absolute bottom-0 left-0 right-0 h-px" style={{ background: '#4ade80' }} />
+                        )}
+                      </button>
+                    )}
+                    {ANALYSIS_TABS.map(tab => {
                       const active = visibleTabs.includes(tab.id)
                       const stacked = active && visibleTabs.length > 1
                       return (
@@ -204,36 +258,45 @@ export default function App() {
                     })}
                   </div>
 
-                  {/* Tab content — renders in click order */}
-                  <div className="overflow-y-auto no-drag" style={{ scrollbarWidth: 'none', maxHeight: 760 }}>
-                    <AnimatePresence>
-                      {visibleTabs.map((tabId, index) => (
-                        <motion.div
-                          key={tabId}
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          exit={{ opacity: 0, height: 0 }}
-                          transition={{ duration: 0.18 }}
-                          style={{ overflow: 'hidden' }}
-                        >
-                          {index > 0 && <div className="border-t border-white/5" />}
-                          <div className="px-3 py-3">
-                            {tabId === 'jg'    && <JGPath jgPath={analysis.data.jg_path} />}
-                            {tabId === 'plan'  && <Gameplan gameplan={analysis.data.gameplan} />}
-                            {tabId === 'runes' && <RuneSuggestion runes={analysis.data.runes} />}
-                            {tabId === 'build' && <ItemBuildPath items={analysis.data.item_path} earlyBuys={analysis.data.early_buys} startingItems={analysis.data.starting_items} />}
-                            {tabId === 'comp'  && (
-                              <div className="flex flex-col gap-5">
-                                <TeamComp teamComp={analysis.data.team_comp} />
-                                <MatchInsight insight={analysis.data.match_insight} />
-                              </div>
-                            )}
-                            {tabId === 'kit'   && <LaneKitCooldowns enemyLaner={analysis.data.enemy_laner} />}
-                          </div>
-                        </motion.div>
-                      ))}
-                    </AnimatePresence>
-                  </div>
+                  {/* Live tab content */}
+                  {visibleTabs[0] === 'live' && liveSnapshot && (
+                    <div className="overflow-y-auto no-drag" style={{ scrollbarWidth: 'none', maxHeight: 760 }}>
+                      <LiveView snapshot={liveSnapshot} />
+                    </div>
+                  )}
+
+                  {/* Analysis tab content — only when result is available */}
+                  {analysis.phase === 'result' && (
+                    <div className="overflow-y-auto no-drag" style={{ scrollbarWidth: 'none', maxHeight: 760, display: visibleTabs[0] === 'live' ? 'none' : undefined }}>
+                      <AnimatePresence>
+                        {visibleTabs.filter(t => t !== 'live').map((tabId, index) => (
+                          <motion.div
+                            key={tabId}
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.18 }}
+                            style={{ overflow: 'hidden' }}
+                          >
+                            {index > 0 && <div className="border-t border-white/5" />}
+                            <div className="px-3 py-3">
+                              {tabId === 'jg'    && <JGPath jgPath={analysis.data.jg_path} />}
+                              {tabId === 'plan'  && <Gameplan gameplan={analysis.data.gameplan} />}
+                              {tabId === 'runes' && <RuneSuggestion runes={analysis.data.runes} />}
+                              {tabId === 'build' && <ItemBuildPath items={analysis.data.item_path} earlyBuys={analysis.data.early_buys} startingItems={analysis.data.starting_items} />}
+                              {tabId === 'comp'  && (
+                                <div className="flex flex-col gap-5">
+                                  <TeamComp teamComp={analysis.data.team_comp} />
+                                  <MatchInsight insight={analysis.data.match_insight} />
+                                </div>
+                              )}
+                              {tabId === 'kit'   && <LaneKitCooldowns enemyLaner={analysis.data.enemy_laner} />}
+                            </div>
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
+                    </div>
+                  )}
                 </>
               )}
             </div>
