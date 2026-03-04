@@ -47,7 +47,7 @@ export default function App() {
   const [analysis, setAnalysis] = useState<AnalysisState>({ phase: 'idle' })
   const [viewMode, setViewMode] = useState<ViewMode>('panel')
   const [visibleTabs, setVisibleTabs] = useState<TabId[]>(['jg'])
-  const panelRef = useRef<HTMLDivElement>(null)
+  const wrapperRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     window.overlayApi.onLoading(() => {
@@ -59,16 +59,17 @@ export default function App() {
     window.overlayApi.onResult(data => {
       setAnalysis({ phase: 'result', data })
       setVisibleTabs(['jg'])
+      setViewMode('panel')
     })
     window.overlayApi.onError(message => setAnalysis({ phase: 'error', message }))
   }, [])
 
-  // Resize window to fit content
+  // Resize window to fit content — observe the always-mounted wrapper so
+  // switching between tips/panel never detaches the observer.
   useEffect(() => {
-    const el = panelRef.current
+    const el = wrapperRef.current
     if (!el) return
     const ro = new ResizeObserver(() => {
-      // offsetHeight + margin (6px top + 6px bottom)
       window.overlayApi.resize(el.offsetHeight + 12)
     })
     ro.observe(el)
@@ -88,6 +89,8 @@ export default function App() {
           className="w-full"
           style={{ background: 'transparent' }}
         >
+          <div ref={wrapperRef}>
+
           {/* ── TIPS MODE ── */}
           {viewMode === 'tips' && (
             <TipsView analysis={analysisData} onTogglePanel={() => setViewMode('panel')} />
@@ -96,7 +99,6 @@ export default function App() {
           {/* ── PANEL MODE ── */}
           {viewMode === 'panel' && (
             <div
-              ref={panelRef}
               className="flex flex-col"
               style={{
                 background: 'rgba(8, 10, 18, 0.92)',
@@ -236,6 +238,8 @@ export default function App() {
               )}
             </div>
           )}
+
+          </div>{/* end wrapperRef */}
         </motion.div>
       )}
     </AnimatePresence>

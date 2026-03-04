@@ -4,45 +4,49 @@ import { join } from 'path'
 import { createMainWindow } from './windows/main-window'
 import { createOverlayWindow } from './windows/overlay-window'
 import { registerIpcHandlers } from './ipc/handlers'
+import { setClient } from './services/client-state'
+import { loadConfig, type ProviderConfig } from './services/config-store'
 import { ClaudeClient } from './services/claude-client'
 import { OpenAIClient } from './services/openai-client'
-import type { AIClient } from './services/ai-client'
+import { OpenRouterClient } from './services/openrouter-client'
 
 // In production: ~/Library/Application Support/TopDiff/.env
 // In dev: project root .env
 const prodEnv = join(app.getPath('userData'), '.env')
 const devEnv = join(app.getAppPath(), '.env')
 dotenv.config({ path: prodEnv })
-if (!process.env.ANTHROPIC_API_KEY && !process.env.OPENAI_API_KEY) {
+if (!process.env.ANTHROPIC_API_KEY && !process.env.OPENAI_API_KEY && !process.env.OPENROUTER_API_KEY) {
   dotenv.config({ path: devEnv })
 }
 
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY
+export function initClientFromConfig(config: ProviderConfig): void {
+  const { provider, openaiKey, claudeKey, openrouterKey, openrouterModel, openrouterVisionModel } = config
 
-let aiClient: AIClient
-
-if (OPENAI_API_KEY) {
-  aiClient = new OpenAIClient(OPENAI_API_KEY)
-  console.log('[TopDiff] Using OpenAI (gpt-4o)')
-} else if (ANTHROPIC_API_KEY) {
-  aiClient = new ClaudeClient(ANTHROPIC_API_KEY)
-  console.log('[TopDiff] Using Claude (claude-sonnet-4-6)')
-} else {
-  console.error(
-    '\n[TopDiff] No API key found.\n' +
-    'Add one of these to your .env file:\n' +
-    '  OPENAI_API_KEY=sk-...\n' +
-    '  ANTHROPIC_API_KEY=sk-ant-...\n'
-  )
-  app.quit()
-  process.exit(1)
+  if (provider === 'openai' && openaiKey) {
+    setClient(new OpenAIClient(openaiKey, config.openaiModel))
+    console.log('[TopDiff] Using OpenAI model:', config.openaiModel ?? 'gpt-4.1')
+  } else if (provider === 'claude' && claudeKey) {
+    setClient(new ClaudeClient(claudeKey, config.claudeModel))
+    console.log('[TopDiff] Using Claude model:', config.claudeModel ?? 'claude-sonnet-4-6')
+  } else if (provider === 'openrouter' && openrouterKey) {
+    if (openrouterModel) process.env.OPENROUTER_MODEL = openrouterModel
+    if (openrouterVisionModel) process.env.OPENROUTER_VISION_MODEL = openrouterVisionModel
+    setClient(new OpenRouterClient(openrouterKey))
+    console.log('[TopDiff] Using OpenRouter')
+    console.log('  text model   :', openrouterModel ?? 'deepseek/deepseek-chat-v3-0324:free')
+    console.log('  vision model :', openrouterVisionModel ?? 'qwen/qwen2.5-vl-72b-instruct:free')
+  } else {
+    console.warn('[TopDiff] No API key for provider:', provider, '— configure via Settings')
+  }
 }
+
+const config = loadConfig()
+initClientFromConfig(config)
 
 app.whenReady().then(() => {
   createMainWindow()
   createOverlayWindow()
-  registerIpcHandlers(aiClient)
+  registerIpcHandlers()
 })
 
 app.on('window-all-closed', () => {

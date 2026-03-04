@@ -8,27 +8,31 @@ import {
 } from '../prompts'
 import type { AIClient } from './ai-client'
 import { AnalysisResultSchema } from './schemas'
+import { recordUsage } from './usage-tracker'
 
 // ── Client ───────────────────────────────────────────────────────────────────
 
 export class OpenAIClient implements AIClient {
   readonly provider = 'openai' as const
   private client: OpenAI
+  private model: string
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, model = 'gpt-4.1') {
     this.client = new OpenAI({ apiKey })
+    this.model = model
   }
 
   async analyseMatchup(params: AnalysisPromptParams): Promise<AnalysisResult> {
     const userPrompt = buildAnalysisUserPrompt(params)
 
     console.log('\n─── [OpenAI] analyseMatchup REQUEST ───────────────────────')
+    console.log('MODEL:', this.model)
     console.log('SYSTEM:\n', ANALYSIS_SYSTEM_PROMPT)
     console.log('\nUSER:\n', userPrompt)
     console.log('────────────────────────────────────────────────────────────\n')
 
     const response = await this.client.responses.create({
-      model: 'gpt-4.1',
+      model: this.model,
       tools: [{ type: 'web_search_preview' }],
       instructions: ANALYSIS_SYSTEM_PROMPT,
       input: userPrompt
@@ -36,6 +40,7 @@ export class OpenAIClient implements AIClient {
 
     const text = response.output_text
     console.log('\n─── [OpenAI] analyseMatchup RESPONSE ──────────────────────')
+    recordUsage(this.model, response.usage?.input_tokens ?? 0, response.usage?.output_tokens ?? 0)
     console.log(text)
     console.log('────────────────────────────────────────────────────────────\n')
 
@@ -59,7 +64,7 @@ export class OpenAIClient implements AIClient {
     console.log('────────────────────────────────────────────────────────────\n')
 
     const response = await this.client.chat.completions.create({
-      model: 'gpt-4.1',
+      model: this.model,
       max_tokens: 256,
       messages: [
         {
@@ -80,6 +85,7 @@ export class OpenAIClient implements AIClient {
 
     const text = response.choices[0]?.message?.content
     console.log('\n─── [OpenAI] detectEnemyPicks RESPONSE ────────────────────')
+    recordUsage(this.model, response.usage?.prompt_tokens ?? 0, response.usage?.completion_tokens ?? 0)
     console.log(text)
     console.log('────────────────────────────────────────────────────────────\n')
 

@@ -50,7 +50,7 @@ export default function TipsView({ analysis, onTogglePanel }: Props) {
   }
 
   return (
-    <div className="w-full h-full flex flex-col justify-between" style={{ background: 'transparent' }}>
+    <div className="w-full flex flex-col justify-between" style={{ background: 'transparent', minHeight: 120 }}>
       {/* Tip text */}
       <div className="flex-1 flex items-start pt-4 px-3">
         <div className="relative w-full" style={{ minHeight: 72 }}>

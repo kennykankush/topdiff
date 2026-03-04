@@ -10,5 +10,5 @@ export interface AIClient {
     note: string
     pendingRoles: string[]
   }>
-  readonly provider: 'claude' | 'openai'
+  readonly provider: 'claude' | 'openai' | 'openrouter'
 }

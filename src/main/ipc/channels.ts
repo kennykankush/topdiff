@@ -7,6 +7,9 @@ export const IPC = {
   MOVE_OVERLAY: 'move-overlay',
 
   RESIZE_OVERLAY: 'resize-overlay',
+  GET_PROVIDER_CONFIG: 'get-provider-config',
+  SET_PROVIDER_CONFIG: 'set-provider-config',
+  GET_USAGE: 'get-usage',
 
   // Main → Renderer
   ANALYSIS_RESULT: 'analysis-result',

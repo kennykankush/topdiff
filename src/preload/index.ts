@@ -9,7 +9,13 @@ contextBridge.exposeInMainWorld('api', {
   analyse: (payload: { myChampion: string; myRole: string; side: 'Blue' | 'Red'; enemyTeam: string[] }) =>
     ipcRenderer.invoke(IPC.ANALYSE, payload),
   showOverlay: () =>
-    ipcRenderer.send(IPC.SHOW_OVERLAY)
+    ipcRenderer.send(IPC.SHOW_OVERLAY),
+  getProviderConfig: () =>
+    ipcRenderer.invoke(IPC.GET_PROVIDER_CONFIG),
+  setProviderConfig: (payload: { provider: string; apiKey?: string; model?: string; visionModel?: string }) =>
+    ipcRenderer.invoke(IPC.SET_PROVIDER_CONFIG, payload),
+  getUsage: () =>
+    ipcRenderer.invoke(IPC.GET_USAGE),
 })
 
 // Overlay window API
