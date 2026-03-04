@@ -5,12 +5,12 @@ let mainWindow: BrowserWindow | null = null
 
 export function createMainWindow(): BrowserWindow {
   mainWindow = new BrowserWindow({
-    width: 520,
-    height: 680,
+    width: 500,
+    height: 720,
     minWidth: 460,
-    minHeight: 600,
+    minHeight: 680,
     titleBarStyle: 'hiddenInset',
-    backgroundColor: '#010A13',
+    backgroundColor: '#080C14',
     show: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
