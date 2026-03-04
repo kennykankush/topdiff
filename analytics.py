@@ -41,6 +41,7 @@ def load_data():
                     r["meta_myChampion"] = meta.get("myChampion")
                     r["meta_myRole"] = meta.get("myRole")
                     r["meta_enemyLaner"] = meta.get("enemyLaner")
+                    r["meta_roleDedupeApplied"] = meta.get("roleDedupeApplied", False)
                     call_records.append(r)
             except json.JSONDecodeError:
                 pass
@@ -125,6 +126,19 @@ def build_report(call_records, feedback_records):
         total_cost=("costUsd", "sum"),
     ).reset_index()
 
+    # Session stats
+    session_stats = df.groupby("sessionId").agg(
+        calls=("costUsd", "count"),
+        cost=("costUsd", "sum"),
+    )
+    avg_calls_per_session = session_stats["calls"].mean()
+    avg_cost_per_session = session_stats["cost"].mean()
+    total_sessions = len(session_stats)
+
+    # Role dedupe rate (Auto-Detect only)
+    ad_df = df[df["phase"] == "Auto-Detect"]
+    dedup_rate = ad_df["meta_roleDedupeApplied"].mean() * 100 if not ad_df.empty else 0
+
     total_calls = len(df)
     total_spend = df["costUsd"].sum()
     success_rate = df["success"].mean() * 100
@@ -164,6 +178,9 @@ def build_report(call_records, feedback_records):
         best_val = agg.dropna(subset=["value_score"]).sort_values("value_score", ascending=False).iloc[0]
         insights.append(f"Best overall value: <b>{best_val['model']}</b> (value score: {best_val['value_score']:.1f})")
 
+    if dedup_rate > 0:
+        insights.append(f"Role deduplication was triggered on <b>{dedup_rate:.1f}%</b> of Auto-Detect calls — model assigned duplicate roles that needed fixing")
+
     # ── Section 1: Summary cards ──────────────────────────────────────────────
     phase_card_html = ""
     for _, row in phase_stats.iterrows():
@@ -197,6 +214,18 @@ def build_report(call_records, feedback_records):
         <div class="card-label">Best Value Model</div>
       </div>
       {phase_card_html}
+      <div class="card">
+        <div class="card-value">{total_sessions}</div>
+        <div class="card-label">Sessions · {avg_calls_per_session:.1f} calls avg</div>
+      </div>
+      <div class="card">
+        <div class="card-value">${avg_cost_per_session:.4f}</div>
+        <div class="card-label">Avg cost / session</div>
+      </div>
+      <div class="card">
+        <div class="card-value">{dedup_rate:.1f}%</div>
+        <div class="card-label">Role dedup rate</div>
+      </div>
     </div>
     {insights_html}
     """
@@ -244,9 +273,13 @@ def build_report(call_records, feedback_records):
     sections.append(("Model Comparison", fig2.to_html(full_html=False, include_plotlyjs=False)))
 
     # ── Model stats table ─────────────────────────────────────────────────────
-    table_headers = ["Model", "Calls", "Success %", "Avg Cost", "Cost/Success", "Latency p50", "Latency p95", "Value Score"]
+    # Get latest prompt version seen per model
+    prompt_ver_by_model = df.groupby("model")["promptVersion"].last().to_dict() if "promptVersion" in df.columns else {}
+
+    table_headers = ["Model", "Prompt Ver", "Calls", "Success %", "Avg Cost", "Cost/Success", "Latency p50", "Latency p95", "Value Score"]
     table_vals = [
         agg["model"].tolist(),
+        [prompt_ver_by_model.get(m, "—") for m in agg["model"]],
         agg["total_calls"].tolist(),
         [f"{v:.1f}%" for v in agg["success_rate"]],
         [f"${v:.5f}" for v in agg["avg_cost"]],

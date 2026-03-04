@@ -3,13 +3,15 @@ import type { AnalysisResult } from '../../shared/types'
 import {
   ANALYSIS_SYSTEM_PROMPT,
   VISION_PROMPT,
+  VISION_PROMPT_VERSION,
+  ANALYSIS_PROMPT_VERSION,
   buildAnalysisUserPrompt,
   type AnalysisPromptParams
 } from '../prompts'
 import type { AIClient } from './ai-client'
 import { AnalysisResultSchema } from './schemas'
 import { recordUsage, computeCost } from './usage-tracker'
-import { appendAnalyticsRecord } from './analytics-store'
+import { appendAnalyticsRecord, SESSION_ID } from './analytics-store'
 
 // Default free models — override via env vars
 const DEFAULT_TEXT_MODEL = 'deepseek/deepseek-chat-v3-0324:free'
@@ -55,9 +57,11 @@ export class OpenRouterClient implements AIClient {
       const latencyMs = Date.now() - t0
       appendAnalyticsRecord({
         timestamp: new Date().toISOString(),
+        sessionId: SESSION_ID,
         phase: 'Match Analysis',
         provider: 'openrouter',
         model: this.textModel,
+        promptVersion: ANALYSIS_PROMPT_VERSION,
         inputTokens: 0,
         outputTokens: 0,
         costUsd: 0,
@@ -140,9 +144,11 @@ export class OpenRouterClient implements AIClient {
       const latencyMs = Date.now() - t0
       appendAnalyticsRecord({
         timestamp: recordTimestamp,
+        sessionId: SESSION_ID,
         phase: 'Auto-Detect',
         provider: 'openrouter',
         model: this.visionModel,
+        promptVersion: VISION_PROMPT_VERSION,
         inputTokens: 0,
         outputTokens: 0,
         costUsd: 0,
@@ -165,9 +171,11 @@ export class OpenRouterClient implements AIClient {
     if (!text) {
       appendAnalyticsRecord({
         timestamp: recordTimestamp,
+        sessionId: SESSION_ID,
         phase: 'Auto-Detect',
         provider: 'openrouter',
         model: this.visionModel,
+        promptVersion: VISION_PROMPT_VERSION,
         inputTokens: response.usage?.prompt_tokens ?? 0,
         outputTokens: response.usage?.completion_tokens ?? 0,
         costUsd: computeCost(this.visionModel, response.usage?.prompt_tokens ?? 0, response.usage?.completion_tokens ?? 0),
@@ -207,12 +215,14 @@ export class OpenRouterClient implements AIClient {
         note: string
         confidence: string
       }
-      const picks = dedupeRoles(parsed.enemy_picks ?? [])
+      const { picks, deduped } = dedupeRoles(parsed.enemy_picks ?? [])
       appendAnalyticsRecord({
         timestamp: recordTimestamp,
+        sessionId: SESSION_ID,
         phase: 'Auto-Detect',
         provider: 'openrouter',
         model: this.visionModel,
+        promptVersion: VISION_PROMPT_VERSION,
         inputTokens: response.usage?.prompt_tokens ?? 0,
         outputTokens: response.usage?.completion_tokens ?? 0,
         costUsd: computeCost(this.visionModel, response.usage?.prompt_tokens ?? 0, response.usage?.completion_tokens ?? 0),
@@ -222,6 +232,7 @@ export class OpenRouterClient implements AIClient {
         meta: {
           scene: parsed.scene,
           detectedCount: picks.length,
+          roleDedupeApplied: deduped,
           myChampion: parsed.my_champion ?? null,
           myRole: parsed.my_role ?? null,
         }
@@ -238,9 +249,11 @@ export class OpenRouterClient implements AIClient {
     } catch {
       appendAnalyticsRecord({
         timestamp: recordTimestamp,
+        sessionId: SESSION_ID,
         phase: 'Auto-Detect',
         provider: 'openrouter',
         model: this.visionModel,
+        promptVersion: VISION_PROMPT_VERSION,
         inputTokens: response.usage?.prompt_tokens ?? 0,
         outputTokens: response.usage?.completion_tokens ?? 0,
         costUsd: computeCost(this.visionModel, response.usage?.prompt_tokens ?? 0, response.usage?.completion_tokens ?? 0),

@@ -1,16 +1,22 @@
 import { appendFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
+import { randomUUID } from 'crypto'
 
 const DATA_DIR = join(process.cwd(), 'data')
 const DATA_FILE = join(DATA_DIR, 'analytics.ndjson')
+
+// Generated once per app launch — groups all calls from the same session
+export const SESSION_ID = randomUUID()
 
 export type AnalyticsPhase = 'Auto-Detect' | 'Match Analysis'
 
 export interface AnalyticsRecord {
   timestamp: string
+  sessionId: string
   phase: AnalyticsPhase
   provider: string
   model: string
+  promptVersion: string
   inputTokens: number
   outputTokens: number
   costUsd: number

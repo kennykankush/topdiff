@@ -1,5 +1,9 @@
 import type { DDragonChampionSpells } from '../services/data-dragon'
 
+// Bump these when you change the respective prompts
+export const VISION_PROMPT_VERSION = 'v2'
+export const ANALYSIS_PROMPT_VERSION = 'v1'
+
 export interface AnalysisPromptParams {
   myChampion: string
   myRole: string

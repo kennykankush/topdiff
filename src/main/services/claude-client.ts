@@ -3,20 +3,22 @@ import type { AnalysisResult } from '../../shared/types'
 import {
   ANALYSIS_SYSTEM_PROMPT,
   VISION_PROMPT,
+  VISION_PROMPT_VERSION,
+  ANALYSIS_PROMPT_VERSION,
   buildAnalysisUserPrompt,
   type AnalysisPromptParams
 } from '../prompts'
 import type { AIClient } from './ai-client'
 import { AnalysisResultSchema } from './schemas'
 import { recordUsage, computeCost } from './usage-tracker'
-import { appendAnalyticsRecord } from './analytics-store'
+import { appendAnalyticsRecord, SESSION_ID } from './analytics-store'
 
 // Re-export the shared type so other main-process code can import from here
 export type { AnalysisResult }
 
 const ALL_ROLES = ['Top', 'Jungle', 'Mid', 'Bot', 'Support']
 
-function dedupeRoles(picks: { champion: string; role: string }[]): { champion: string; role: string }[] {
+function dedupeRoles(picks: { champion: string; role: string }[]): { picks: { champion: string; role: string }[]; deduped: boolean } {
   const used = new Set<string>()
   const result: { champion: string; role: string }[] = []
   const needsRole: { champion: string; role: string }[] = []
@@ -41,7 +43,7 @@ function dedupeRoles(picks: { champion: string; role: string }[]): { champion: s
     }
   }
 
-  return result
+  return { picks: result, deduped: needsRole.length > 0 }
 }
 
 // ── Client ───────────────────────────────────────────────────────────────────
@@ -79,9 +81,11 @@ export class ClaudeClient implements AIClient {
       const latencyMs = Date.now() - t0
       appendAnalyticsRecord({
         timestamp: new Date().toISOString(),
+        sessionId: SESSION_ID,
         phase: 'Match Analysis',
         provider: 'claude',
         model: this.model,
+        promptVersion: ANALYSIS_PROMPT_VERSION,
         inputTokens: 0,
         outputTokens: 0,
         costUsd: 0,
@@ -98,9 +102,11 @@ export class ClaudeClient implements AIClient {
     recordUsage(this.model, response.usage.input_tokens, response.usage.output_tokens, 'Match Analysis')
     appendAnalyticsRecord({
       timestamp: new Date().toISOString(),
+      sessionId: SESSION_ID,
       phase: 'Match Analysis',
       provider: 'claude',
       model: this.model,
+      promptVersion: ANALYSIS_PROMPT_VERSION,
       inputTokens: response.usage.input_tokens,
       outputTokens: response.usage.output_tokens,
       costUsd: computeCost(this.model, response.usage.input_tokens, response.usage.output_tokens),
@@ -181,9 +187,11 @@ export class ClaudeClient implements AIClient {
       const latencyMs = Date.now() - t0
       appendAnalyticsRecord({
         timestamp: recordTimestamp,
+        sessionId: SESSION_ID,
         phase: 'Auto-Detect',
         provider: 'claude',
         model: this.model,
+        promptVersion: VISION_PROMPT_VERSION,
         inputTokens: 0,
         outputTokens: 0,
         costUsd: 0,
@@ -206,9 +214,11 @@ export class ClaudeClient implements AIClient {
     if (!textBlock || textBlock.type !== 'text') {
       appendAnalyticsRecord({
         timestamp: recordTimestamp,
+        sessionId: SESSION_ID,
         phase: 'Auto-Detect',
         provider: 'claude',
         model: this.model,
+        promptVersion: VISION_PROMPT_VERSION,
         inputTokens: response.usage.input_tokens,
         outputTokens: response.usage.output_tokens,
         costUsd: computeCost(this.model, response.usage.input_tokens, response.usage.output_tokens),
@@ -248,12 +258,14 @@ export class ClaudeClient implements AIClient {
         pending_roles: string[]
         note: string
       }
-      const picks = dedupeRoles(parsed.enemy_picks ?? [])
+      const { picks, deduped } = dedupeRoles(parsed.enemy_picks ?? [])
       appendAnalyticsRecord({
         timestamp: recordTimestamp,
+        sessionId: SESSION_ID,
         phase: 'Auto-Detect',
         provider: 'claude',
         model: this.model,
+        promptVersion: VISION_PROMPT_VERSION,
         inputTokens: response.usage.input_tokens,
         outputTokens: response.usage.output_tokens,
         costUsd: computeCost(this.model, response.usage.input_tokens, response.usage.output_tokens),
@@ -263,6 +275,7 @@ export class ClaudeClient implements AIClient {
         meta: {
           scene: parsed.scene,
           detectedCount: picks.length,
+          roleDedupeApplied: deduped,
           myChampion: parsed.my_champion ?? null,
           myRole: parsed.my_role ?? null,
         }
@@ -279,9 +292,11 @@ export class ClaudeClient implements AIClient {
     } catch {
       appendAnalyticsRecord({
         timestamp: recordTimestamp,
+        sessionId: SESSION_ID,
         phase: 'Auto-Detect',
         provider: 'claude',
         model: this.model,
+        promptVersion: VISION_PROMPT_VERSION,
         inputTokens: response.usage.input_tokens,
         outputTokens: response.usage.output_tokens,
         costUsd: computeCost(this.model, response.usage.input_tokens, response.usage.output_tokens),
