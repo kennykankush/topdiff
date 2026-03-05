@@ -1,8 +1,10 @@
 node_modules/
+.venv/
 out/
 dist/
 release/
 ss/
+data/
 .env
 *.local
 .DS_Store

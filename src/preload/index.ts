@@ -16,6 +16,8 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke(IPC.SET_PROVIDER_CONFIG, payload),
   getUsage: () =>
     ipcRenderer.invoke(IPC.GET_USAGE),
+  submitAccuracy: (payload: { refTimestamp: string; correctCount: number; totalDetected: number; accuracyPct: number }) =>
+    ipcRenderer.send(IPC.SUBMIT_ACCURACY, payload),
 })
 
 // Overlay window API
