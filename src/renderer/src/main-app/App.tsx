@@ -187,6 +187,7 @@ export default function App() {
   const [side, setSide] = useState<'Blue' | 'Red'>('Blue')
   const [enemies, setEnemies] = useState<string[]>(['', '', '', '', ''])
   const [enemiesConfirmed, setEnemiesConfirmed] = useState<boolean[]>([false, false, false, false, false])
+  const [selectedEnemyIdx, setSelectedEnemyIdx] = useState<number | null>(null)
   const [detectedSnapshot, setDetectedSnapshot] = useState<{ refTimestamp: string; enemies: string[]; myChampion: string | null } | null>(null)
   const [screenshotting, setScreenshotting] = useState(false)
   const [analysing, setAnalysing] = useState(false)
@@ -214,6 +215,24 @@ export default function App() {
   function confirmEnemy(index: number, value: string) {
     setEnemies(prev => prev.map((e, i) => i === index ? value : e))
     setEnemiesConfirmed(prev => prev.map((c, i) => i === index ? true : c))
+  }
+
+  function handleEnemyPortraitClick(e: React.MouseEvent, i: number) {
+    if (e.shiftKey && selectedEnemyIdx !== null && selectedEnemyIdx !== i) {
+      setEnemies(prev => {
+        const next = [...prev]
+        ;[next[selectedEnemyIdx], next[i]] = [next[i], next[selectedEnemyIdx]]
+        return next
+      })
+      setEnemiesConfirmed(prev => {
+        const next = [...prev]
+        ;[next[selectedEnemyIdx], next[i]] = [next[i], next[selectedEnemyIdx]]
+        return next
+      })
+      setSelectedEnemyIdx(null)
+    } else {
+      setSelectedEnemyIdx(prev => prev === i ? null : i)
+    }
   }
 
   async function handleScreenshot() {
@@ -520,14 +539,21 @@ export default function App() {
                   <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7 }}>
 
                     {/* Portrait */}
-                    <div style={{
-                      width: '100%', aspectRatio: '1',
-                      borderRadius: 9, overflow: 'hidden',
-                      border: `1px solid ${confirmed ? 'rgba(200,170,110,0.35)' : 'rgba(255,255,255,0.07)'}`,
-                      background: 'rgba(255,255,255,0.025)',
-                      transition: 'border-color 0.2s',
-                      boxShadow: confirmed ? '0 0 10px rgba(200,170,110,0.08)' : 'none',
-                    }}>
+                    <div
+                      onClick={e => handleEnemyPortraitClick(e, i)}
+                      style={{
+                        width: '100%', aspectRatio: '1',
+                        borderRadius: 9, overflow: 'hidden',
+                        border: selectedEnemyIdx === i
+                          ? '1px solid rgba(100,160,255,0.8)'
+                          : `1px solid ${confirmed ? 'rgba(200,170,110,0.35)' : 'rgba(255,255,255,0.07)'}`,
+                        background: 'rgba(255,255,255,0.025)',
+                        transition: 'border-color 0.2s, box-shadow 0.2s',
+                        boxShadow: selectedEnemyIdx === i
+                          ? '0 0 10px rgba(100,160,255,0.3)'
+                          : confirmed ? '0 0 10px rgba(200,170,110,0.08)' : 'none',
+                        cursor: 'pointer',
+                      }}>
                       {img
                         ? <img src={img} alt={enemies[i]} style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.1)' }} />
                         : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
