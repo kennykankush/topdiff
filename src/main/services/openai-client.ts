@@ -260,7 +260,9 @@ export class OpenAIClient implements AIClient {
 
 const ALL_ROLES = ['Top', 'Jungle', 'Mid', 'Bot', 'Support']
 
-function dedupeRoles(picks: { champion: string; role: string }[]): { champion: string; role: string }[] {
+function dedupeRoles(
+  picks: { champion: string; role: string }[]
+): { picks: { champion: string; role: string }[]; deduped: boolean } {
   const used = new Set<string>()
   const result: { champion: string; role: string }[] = []
   const needsRole: { champion: string; role: string }[] = []
@@ -273,5 +275,5 @@ function dedupeRoles(picks: { champion: string; role: string }[]): { champion: s
     if (remaining) { used.add(remaining); result.push({ champion: pick.champion, role: remaining }) }
     else result.push(pick)
   }
-  return result
+  return { picks: result, deduped: needsRole.length > 0 }
 }
